@@ -3,28 +3,35 @@ import { config } from "dotenv";
 import cors from "cors";
 import { sendEmail } from "./utils/sendEmail.js";
 
-const app = express();
-const router = express.Router();
-
 config({ path: "./config.env" });
 
-// Middleware for CORS
+const app = express();
+
+// ✅ Load middleware before routes
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ✅ Allow CORS for your Vercel frontend
+const allowedOrigins = [process.env.FRONTEND_URL];
 app.use(
   cors({
-    origin: [process.env.FRONTEND_URL],
-    methods: ["POST"],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST"],
     credentials: true,
   })
 );
 
-// ✅ Make sure body-parser middleware is loaded before routes
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Define routes AFTER middleware
-router.post("/send/mail", async (req, res, next) => {
+// ✅ Route defined after all middleware
+app.post("/send/mail", async (req, res) => {
   try {
-    // ✅ Check if req.body is properly received
     console.log("Request Body:", req.body);
 
     const { name, email, message } = req.body;
@@ -55,8 +62,7 @@ router.post("/send/mail", async (req, res, next) => {
   }
 });
 
-app.use(router);
-
+// ✅ Server start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server listening at port ${PORT}`);
